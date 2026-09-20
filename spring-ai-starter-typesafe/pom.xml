@@ -14,6 +14,45 @@
 	<name>Spring AI TypeSafe :: Spring Boot Starter</name>
 	<description>Spring Boot auto-configuration for the TypeSafe AI System One (Jev) client</description>
 
+	<!--
+		Repeated rather than inherited.
+	-->
+	<url>https://github.com/spring-ai-community/spring-ai-typesafe</url>
+
+	<scm>
+		<url>https://github.com/spring-ai-community/spring-ai-typesafe</url>
+		<connection>git://github.com/spring-ai-community/spring-ai-typesafe.git</connection>
+		<developerConnection>git@github.com:spring-ai-community/spring-ai-typesafe.git</developerConnection>
+	</scm>
+
+	<organization>
+		<name>Spring AI Community</name>
+		<url>https://github.com/spring-ai-community</url>
+	</organization>
+
+	<licenses>
+		<license>
+			<name>Apache License 2.0</name>
+			<url>https://www.apache.org/licenses/LICENSE-2.0</url>
+		</license>
+	</licenses>
+
+	<developers>
+		<developer>
+			<name>Christian Tzolov</name>
+		</developer>
+	</developers>
+
+	<issueManagement>
+		<system>Github Issues</system>
+		<url>https://github.com/spring-ai-community/spring-ai-typesafe/issues</url>
+	</issueManagement>
+
+	<ciManagement>
+		<system>Github Actions</system>
+		<url>https://github.com/spring-ai-community/spring-ai-typesafe/actions</url>
+	</ciManagement>
+
 	<dependencies>
 		<dependency>
 			<groupId>org.springaicommunity</groupId>
