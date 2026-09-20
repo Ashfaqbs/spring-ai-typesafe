@@ -1,5 +1,10 @@
 # Spring AI TypeSafe
 
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Maven Central](https://img.shields.io/maven-central/v/org.springaicommunity/spring-ai-typesafe.svg?label=Maven%20Central)](https://central.sonatype.com/artifact/org.springaicommunity/spring-ai-typesafe)
+[![Java Version](https://img.shields.io/badge/Java-17%2B-orange)](https://www.oracle.com/java/technologies/javase/jdk17-archive-downloads.html)
+
+
 A Java client for the [TypeSafe AI](https://docs.typesafe.ai/introduction) **System One**
 API (`jev`), built on Spring `RestClient` and Jackson 3, plus Spring AI integrations that
 use it as an LLM-as-a-judge, a guardrail, a RAG post-processor and a tool index.
