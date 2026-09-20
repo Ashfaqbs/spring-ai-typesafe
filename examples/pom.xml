@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+		 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+		 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<parent>
+		<groupId>org.springaicommunity</groupId>
+		<artifactId>spring-ai-typesafe-parent</artifactId>
+		<version>0.1.0-SNAPSHOT</version>
+	</parent>
+
+	<artifactId>typesafe-examples</artifactId>
+	<name>Spring AI TypeSafe :: Examples</name>
+	<description>Runnable examples: LLM-as-a-judge, guardrails, RAG post-processing and tool search backed by Jev instead of a second chat model</description>
+
+	<properties>
+		<!-- The default demo. Override on the command line to run the other one, e.g.
+		     -Dspring-boot.run.main-class=org.springaicommunity.typesafe.demo.JevQuickstart -->
+		<start-class>org.springaicommunity.typesafe.demo.judge.LlmJudgeDemoApplication</start-class>
+		<spring-boot.run.main-class>${start-class}</spring-boot.run.main-class>
+	</properties>
+
+	<dependencies>
+		<dependency>
+			<groupId>org.springaicommunity</groupId>
+			<artifactId>spring-ai-starter-typesafe</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springaicommunity</groupId>
+			<artifactId>typesafe-spring-ai</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.ai</groupId>
+			<artifactId>spring-ai-starter-model-anthropic</artifactId>
+		</dependency>
+
+		<!-- typesafe-spring-ai declares these optional, so a consumer of the RAG and tool-search
+		     integrations asks for them explicitly, as the demos do here. -->
+		<dependency>
+			<groupId>org.springframework.ai</groupId>
+			<artifactId>spring-ai-rag</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.ai</groupId>
+			<artifactId>spring-ai-tool-search-tool</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-maven-plugin</artifactId>
+				<!--
+					The main class is supplied by the spring-boot.run.main-class and
+					start-class properties rather than by <configuration>. An explicit
+					<mainClass> here would win over the command line, which would make
+					`-Dspring-boot.run.main-class=...JevQuickstart` silently run the other
+					demo instead.
+				-->
+			</plugin>
+		</plugins>
+	</build>
+</project>

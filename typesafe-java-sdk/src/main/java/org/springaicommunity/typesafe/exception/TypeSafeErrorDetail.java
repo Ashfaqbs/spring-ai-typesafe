@@ -1,0 +1,172 @@
+/*
+ * Copyright 2026 - 2026 the original author or authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.springaicommunity.typesafe.exception;
+
+
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.StringJoiner;
+
+import org.jspecify.annotations.Nullable;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
+
+/**
+ * The parsed {@code detail} of a Jev error response.
+ *
+ * <p>
+ * The API wraps every error in a single {@code detail} field, but that field takes three
+ * different shapes depending on where the request failed:
+ *
+ * <pre>{@code
+ * // an application error - 400, 401, 403
+ * {"detail":{"error_type":"authentication_error","message":"Cannot authenticate with the server."}}
+ *
+ * // request validation - 422
+ * {"detail":[{"type":"missing","loc":["body","questions"],"msg":"Field required"}]}
+ *
+ * // an unrouted path - 404
+ * {"detail":"Not Found"}
+ * }</pre>
+ *
+ * All three are normalised onto this record: {@link #message()} always carries something
+ * human-readable, {@link #errorType()} is set only by the object form, and
+ * {@link #validationErrors()} is populated only by the array form.
+ *
+ * <p>
+ * This is a best-effort reading of the body. The raw text always remains available as
+ * {@link TypeSafeApiException#body()}, so an unrecognised shape costs nothing.
+ *
+ * @param errorType the machine-readable kind, for example {@code authentication_error} or
+ * {@code api_usage_error}, or {@code null} when the body did not state one
+ * @param message a human-readable description, or {@code null} when none could be read
+ * @param validationErrors the per-field validation failures, empty unless the response was
+ * a 422
+ * @author Christian Tzolov
+ */
+public record TypeSafeErrorDetail(@Nullable String errorType, @Nullable String message,
+		List<ValidationError> validationErrors) {
+
+	private static final JsonMapper JSON_MAPPER = JsonMapper.builder().build();
+
+	public TypeSafeErrorDetail {
+		validationErrors = validationErrors == null ? List.of() : List.copyOf(validationErrors);
+	}
+
+	/**
+	 * One entry of a 422 validation failure.
+	 *
+	 * @param type the validation rule that failed, for example {@code missing}
+	 * @param loc the path to the offending field, for example {@code ["body", "questions"]}
+	 * @param msg what was wrong with it
+	 */
+	public record ValidationError(@Nullable String type, List<String> loc, @Nullable String msg) {
+
+		public ValidationError {
+			loc = loc == null ? List.of() : List.copyOf(loc);
+		}
+
+		/**
+		 * @return the {@link #loc()} path joined with dots, for example
+		 * {@code body.questions}
+		 */
+		public String path() {
+			return String.join(".", this.loc);
+		}
+
+		@Override
+		public String toString() {
+			String path = path();
+			return path.isEmpty() ? String.valueOf(this.msg) : path + ": " + this.msg;
+		}
+	}
+
+	/**
+	 * Reads the {@code detail} out of a raw error body.
+	 * @param body the raw response body, or {@code null}
+	 * @return the parsed detail, or {@code null} when the body was absent, empty, not JSON,
+	 * or carried no {@code detail} field
+	 */
+	public static @Nullable TypeSafeErrorDetail parse(@Nullable String body) {
+		if (body == null || body.isBlank()) {
+			return null;
+		}
+		JsonNode detail;
+		try {
+			detail = JSON_MAPPER.readTree(body).get("detail");
+		}
+		catch (RuntimeException ex) {
+			// A body that is not JSON at all - a proxy error page, say. The caller still
+			// has the raw text.
+			return null;
+		}
+		if (detail == null || detail.isNull()) {
+			return null;
+		}
+		if (detail.isString()) {
+			return new TypeSafeErrorDetail(null, detail.stringValue(), List.of());
+		}
+		if (detail.isArray()) {
+			List<ValidationError> errors = new ArrayList<>();
+			for (JsonNode element : detail) {
+				errors.add(toValidationError(element));
+			}
+			return new TypeSafeErrorDetail(null, render(errors), Collections.unmodifiableList(errors));
+		}
+		if (detail.isObject()) {
+			return new TypeSafeErrorDetail(text(detail, "error_type"), text(detail, "message"), List.of());
+		}
+		return null;
+	}
+
+	private static ValidationError toValidationError(JsonNode node) {
+		List<String> loc = new ArrayList<>();
+		JsonNode locNode = node.get("loc");
+		if (locNode != null && locNode.isArray()) {
+			for (JsonNode element : locNode) {
+				loc.add(element.asString());
+			}
+		}
+		return new ValidationError(text(node, "type"), loc, text(node, "msg"));
+	}
+
+	private static String render(List<ValidationError> errors) {
+		StringJoiner joiner = new StringJoiner("; ");
+		errors.forEach(error -> joiner.add(error.toString()));
+		return joiner.toString();
+	}
+
+	private static @Nullable String text(JsonNode node, String field) {
+		JsonNode value = node.get(field);
+		return (value == null || value.isNull()) ? null : value.asString();
+	}
+
+	/**
+	 * @return the message with the error type appended when one was stated, as it appears
+	 * in an exception message
+	 */
+	@Override
+	public String toString() {
+		if (this.message == null) {
+			return this.errorType == null ? "" : "[" + this.errorType + "]";
+		}
+		return this.errorType == null ? this.message : this.message + " [" + this.errorType + "]";
+	}
+
+}

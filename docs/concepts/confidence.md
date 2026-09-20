@@ -1,0 +1,87 @@
+# Confidence
+
+Confidence is a second axis. **The answer tells you what; confidence tells you whether to
+act on it unattended.**
+
+## What it actually measures
+
+Confidence is a statistic over the answer's own probability distribution — how concentrated
+it is. A flat distribution means the options or levels did not separate well *for this
+input*.
+
+That is not the same as the answer being wrong. It means the question did not decide
+cleanly, which is a different problem and wants a different response: not "reject this
+answer", but "do not let software act on this one alone".
+
+!!! note "Nouls carry no confidence, by design"
+    A noul's value already *is* its certainty. A `0.5` is the undecided case, so there is
+    nothing a separate statistic would add. Only `Choice` and `Score` report confidence.
+
+## Confidence-gated routing
+
+Tier your thresholds by what the action costs when it is wrong. A universal floor keeps
+anything genuinely undecided away from automation; above it, expensive actions demand more
+than cheap ones.
+
+[`JevConfidenceGate`](../patterns/JevConfidenceGate.md) holds that policy in one place:
+
+```java
+JevConfidenceGate gate = JevConfidenceGate.builder()
+    .floor(0.60d)                    // nothing acts unattended below this
+    .require("transfer_funds", 0.85d) // this one costs more when wrong
+    .build();
+
+switch (gate.decide(response.choice("intent"))) {
+    case EXECUTE  -> perform(intent);
+    case CONFIRM  -> askTheUserToConfirm(intent);
+    case ESCALATE -> handOverToAHuman();
+}
+```
+
+| Confidence | Low-stakes action | High-stakes action |
+|------------|-------------------|--------------------|
+| below the floor | escalate | escalate |
+| floor … requirement | execute | ask the user to confirm |
+| at or above requirement | execute | execute |
+
+## Confidence in the judge
+
+[`JevJudge`](../judge/JevJudge.md) treats a low-confidence criterion as **undecided, not
+failed**. It is reported as `INCONCLUSIVE` and does not block:
+
+```java
+JevJudge judge = JevJudge.builder(typeSafeClient)
+    .score("helpfulness", rubric, 2.0d)
+    .minConfidence(0.5d)          // below this, a criterion is INCONCLUSIVE
+    .failOnInconclusive(false)    // the default: undecided does not block
+    .build();
+```
+
+Turn `failOnInconclusive(true)` on where shipping an unverified answer is worse than
+failing. Leaving it off is right when an occasional unverifiable answer is acceptable and
+a false rejection is not.
+
+## Stability is a different question
+
+Confidence describes one answer. It says nothing about whether you would get the same answer
+again — and a value that lands near a threshold may be noise rather than judgement.
+
+[`JevConsistency`](../patterns/JevConsistency.md) answers that by sampling:
+
+```java
+JevConsistency.Report report = JevConsistency.sample(client, state, questions, 15);
+
+// The questions whose samples straddle the threshold you are about to rely on
+List<String> shaky = report.unstableAt(0.70d);
+```
+
+A criterion whose samples fall on both sides of its threshold makes a decision that is not
+reproducible. Either move the threshold, sharpen the question, or route that case to a
+human.
+
+## See Also
+
+- [JevConfidenceGate](../patterns/JevConfidenceGate.md) — the gate as a reusable policy
+- [JevConsistency](../patterns/JevConsistency.md) — measuring stability across samples
+- [The Three Primitives](primitives.md)
+- [TypeSafe confidence documentation](https://docs.typesafe.ai/confidence)

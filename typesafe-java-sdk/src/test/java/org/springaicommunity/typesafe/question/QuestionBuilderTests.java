@@ -1,0 +1,157 @@
+/*
+ * Copyright 2026 - 2026 the original author or authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.springaicommunity.typesafe.question;
+
+
+
+import java.util.List;
+import java.util.Map;
+
+import org.junit.jupiter.api.Test;
+import org.springaicommunity.typesafe.JsonContent;
+import org.springaicommunity.typesafe.TypeSafeModels;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+
+/**
+ * The builders reject a malformed question locally rather than letting the API answer 422
+ * for it.
+ *
+ * @author Christian Tzolov
+ */
+class QuestionBuilderTests {
+
+	@Test
+	void choiceKeepsOptionOrder() {
+		Choice choice = Choice.builder()
+			.instructions("Which team should handle this?")
+			.option("billing", "Payments, invoicing, refunds")
+			.option("technical", "Bugs, outages, integrations")
+			.option("sales", "Pricing, upgrades, new accounts")
+			.build();
+
+		assertThat(choice.criteria().keySet()).containsExactly("billing", "technical", "sales");
+		assertThat(choice.type()).isEqualTo(QuestionType.CHOICE);
+		assertThat(choice.typeName()).isEqualTo("choice");
+	}
+
+	@Test
+	void choiceAllowsUndescribedOptions() {
+		Choice choice = Choice.of("Which option is the value of `field` in `source_text`?", "Beaver Logistics",
+				"Dam Logistics", "Beaver Dam Logistics");
+
+		assertThat(choice.criteria()).containsOnlyKeys("Beaver Logistics", "Dam Logistics", "Beaver Dam Logistics");
+		assertThat(choice.criteria().get("Dam Logistics")).isEqualTo(JsonContent.NULL);
+	}
+
+	@Test
+	void choiceRejectsAnEmptyOptionSet() {
+		assertThatIllegalArgumentException().isThrownBy(() -> Choice.builder().instructions("Which team?").build())
+			.withMessageContaining("at least one option");
+	}
+
+	@Test
+	void choiceRejectsABlankLabel() {
+		assertThatIllegalArgumentException().isThrownBy(() -> Choice.builder().option("  ", "nothing"))
+			.withMessageContaining("option label");
+	}
+
+	@Test
+	void scoreRejectsFewerThanTwoLevels() {
+		assertThatIllegalArgumentException()
+			.isThrownBy(() -> Score.builder().instructions("How frustrated?").level("Calm").build())
+			.withMessageContaining("at least two levels");
+	}
+
+	@Test
+	void scoreExposesItsRubric() {
+		Score score = Score.of("How frustrated is the customer?", "Calm", "Frustrated", "Very angry");
+
+		assertThat(score.maxLevel()).isEqualTo(2);
+		assertThat(score.levelAt(2)).isEqualTo(JsonContent.of("Very angry"));
+		assertThat(score.levelAt(3)).isNull();
+		assertThat(score.levelAt(-1)).isNull();
+	}
+
+	@Test
+	void noulCriteriaAreOmittedWhenNeitherSideIsDescribed() {
+		assertThat(Noul.of("Does this convey urgency?").criteria()).isNull();
+		assertThat(Noul.builder().instructions("Does this convey urgency?").whenFalse("No urgency expressed").build()
+			.criteria()).isEqualTo(new NoulCriteria(null, JsonContent.of("No urgency expressed")));
+	}
+
+	@Test
+	void everyFieldAcceptsStructure() {
+		Noul noul = Noul.builder()
+			.instructions(Map.of("question", "Does the `message` ask for a credential?", "inspect", "message"))
+			.whenTrue(Map.of("what", "Asks the recipient to reply with a password",
+					"examples", List.of("Reply with your password")))
+			.whenFalse(Map.of("what", "No sensitive credential is requested"))
+			.build();
+
+		assertThat(noul.instructions()).isNotNull();
+		assertThat(noul.instructions().asMap()).containsKey("inspect");
+		assertThat(noul.criteria()).isNotNull();
+		assertThat(noul.criteria().whenTrue()).isNotNull();
+		assertThat(noul.criteria().whenTrue().asMap()).containsKey("examples");
+	}
+
+	@Test
+	void noulRequiresInstructions() {
+		// The API documents instructions as required for a noul; fail at build time like the
+		// Choice and Score builders do, not as a 422 on the wire.
+		assertThatIllegalArgumentException().isThrownBy(() -> Noul.builder().build())
+			.withMessageContaining("instructions must be set");
+	}
+
+	@Test
+	void noulRejectsEmptyCriteriaDescriptions() {
+		// whenTrue(JsonContent) already rejected null; the String and Map overloads let it
+		// through as a JSON null, which only the server would have complained about.
+		assertThatIllegalArgumentException()
+			.isThrownBy(() -> Noul.builder().instructions("x").whenTrue((String) null))
+			.withMessageContaining("description must not be empty");
+		assertThatIllegalArgumentException().isThrownBy(() -> Noul.builder().instructions("x").whenFalse(""))
+			.withMessageContaining("description must not be empty");
+		assertThatIllegalArgumentException()
+			.isThrownBy(() -> Noul.builder().instructions("x").whenTrue(Map.of()))
+			.withMessageContaining("description must not be empty");
+	}
+
+	@Test
+	void requestModelIsOptionalSoTheClientCanSupplyItsDefault() {
+		SystemOneRequest request = SystemOneRequest.builder()
+			.state("anything")
+			.question("probe", Noul.of("Is this a probe?"))
+			.build();
+
+		assertThat(request.model()).isNull();
+		assertThat(request.withModel(TypeSafeModels.JEV_LATEST).model()).isEqualTo(TypeSafeModels.JEV_LATEST);
+		// Naming a blank model explicitly is still a mistake worth catching early.
+		assertThatIllegalArgumentException().isThrownBy(() -> SystemOneRequest.builder().model(" "))
+			.withMessageContaining("model must not be empty");
+	}
+
+	@Test
+	void requestRejectsAnEmptyQuestionSet() {
+		assertThatIllegalArgumentException()
+			.isThrownBy(() -> SystemOneRequest.builder().state("anything").model(TypeSafeModels.JEV_LATEST).build())
+			.withMessageContaining("at least one question");
+	}
+
+}

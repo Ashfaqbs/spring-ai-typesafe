@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ~ Copyright 2026 - 2026 the original author or authors.
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~      https://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+  -->
+
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+		 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+		 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<parent>
+		<groupId>org.springaicommunity</groupId>
+		<artifactId>spring-ai-typesafe-parent</artifactId>
+		<version>0.1.0-SNAPSHOT</version>
+	</parent>
+
+	<artifactId>typesafe-bom</artifactId>
+	<packaging>pom</packaging>
+
+	<name>Spring AI TypeSafe :: BOM</name>
+	<description>Bill of Materials (BOM) for the TypeSafe AI System One (Jev) modules</description>
+
+	<url>https://github.com/spring-ai-community/spring-ai-typesafe</url>
+
+	<scm>
+		<url>https://github.com/spring-ai-community/spring-ai-typesafe</url>
+		<connection>git://github.com/spring-ai-community/spring-ai-typesafe.git</connection>
+		<developerConnection>git@github.com:spring-ai-community/spring-ai-typesafe.git</developerConnection>
+	</scm>
+
+	<organization>
+		<name>Spring AI Community</name>
+		<url>https://github.com/spring-ai-community</url>
+	</organization>
+
+	<licenses>
+		<license>
+			<name>Apache License 2.0</name>
+			<url>https://www.apache.org/licenses/LICENSE-2.0</url>
+		</license>
+	</licenses>
+
+	<developers>
+		<developer>
+			<name>Christian Tzolov</name>
+		</developer>
+	</developers>
+
+	<properties>
+		<flatten-maven-plugin.version>1.5.0</flatten-maven-plugin.version>
+	</properties>
+
+	<!--
+		The published artifacts, and only those. The examples module is a demonstration
+		rather than a library, so importing this BOM must not offer it as a dependency.
+	-->
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>org.springaicommunity</groupId>
+				<artifactId>typesafe-java-sdk</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.springaicommunity</groupId>
+				<artifactId>typesafe-spring-ai</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.springaicommunity</groupId>
+				<artifactId>spring-ai-starter-typesafe</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
+
+	<build>
+		<plugins>
+			<!--
+				A BOM is consumed as a file, so what is published has to stand on its own:
+				flattening resolves ${project.version}, drops the inherited
+				spring-boot-starter-parent, and strips the repositories a consumer should
+				not inherit. Without it the published BOM would be unusable outside this
+				reactor.
+			-->
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>flatten-maven-plugin</artifactId>
+				<version>${flatten-maven-plugin.version}</version>
+				<executions>
+					<execution>
+						<id>flatten</id>
+						<phase>process-resources</phase>
+						<goals>
+							<goal>flatten</goal>
+						</goals>
+						<configuration>
+							<updatePomFile>true</updatePomFile>
+							<flattenMode>bom</flattenMode>
+							<pomElements>
+								<distributionManagement>remove</distributionManagement>
+								<dependencyManagement>keep</dependencyManagement>
+								<repositories>remove</repositories>
+								<scm>keep</scm>
+								<url>keep</url>
+								<organization>resolve</organization>
+							</pomElements>
+						</configuration>
+					</execution>
+					<execution>
+						<id>clean</id>
+						<phase>clean</phase>
+						<goals>
+							<goal>clean</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
+	</build>
+</project>

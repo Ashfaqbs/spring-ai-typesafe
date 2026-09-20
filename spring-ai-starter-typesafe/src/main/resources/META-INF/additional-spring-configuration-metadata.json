@@ -1,0 +1,31 @@
+{
+  "properties": [
+    {
+      "name": "spring.ai.typesafe.api-key",
+      "type": "java.lang.String",
+      "description": "TypeSafe API key. No Jev client is auto-configured until it is set."
+    },
+    {
+      "name": "spring.ai.typesafe.base-url",
+      "type": "java.lang.String",
+      "description": "API root of the TypeSafe System One service.",
+      "defaultValue": "https://api.typesafe.ai"
+    },
+    {
+      "name": "spring.ai.typesafe.model",
+      "type": "java.lang.String",
+      "description": "Model name or alias applied to requests that do not name one.",
+      "defaultValue": "jev-latest"
+    }
+  ],
+  "hints": [
+    {
+      "name": "spring.ai.typesafe.model",
+      "values": [
+        { "value": "jev-latest", "description": "Alias tracking the current flagship release." },
+        { "value": "jev-preview", "description": "Alias tracking the current preview release." },
+        { "value": "jev-1.13.0", "description": "Pinned flagship version." }
+      ]
+    }
+  ]
+}
