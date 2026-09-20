@@ -17,6 +17,68 @@ answer", but "do not let software act on this one alone".
     A noul's value already *is* its certainty. A `0.5` is the undecided case, so there is
     nothing a separate statistic would add. Only `Choice` and `Score` report confidence.
 
+## Where confidence lives
+
+Confidence is a field on the answer, not something you compute. Two of the four answer
+records carry it, and the gate and the judge are the two things that read it — the judge
+from either kind, the gate through `decide(ChoiceAnswer)` or the raw
+`decide(action, confidence)` overload:
+
+```mermaid
+classDiagram
+    direction TB
+
+    class NoulAnswer {
+        <<record>>
+        +double value
+    }
+
+    class ChoiceAnswer {
+        <<record>>
+        +String value
+        +double confidence
+    }
+
+    class ScoreAnswer {
+        <<record>>
+        +double value
+        +double confidence
+    }
+
+    class JevConfidenceGate {
+        +decide(ChoiceAnswer) Decision
+        +floor() double
+        +requiredFor(String) double
+    }
+
+    class Decision {
+        <<enumeration>>
+        EXECUTE
+        CONFIRM
+        ESCALATE
+    }
+
+    class Outcome {
+        <<enumeration>>
+        PASSED
+        FAILED
+        INCONCLUSIVE
+    }
+
+    class JevJudge {
+        +minConfidence
+        +failOnInconclusive
+    }
+
+    JevConfidenceGate ..> ChoiceAnswer : decide(answer)
+    JevConfidenceGate --> Decision
+    JevJudge ..> ChoiceAnswer : reads confidence
+    JevJudge ..> ScoreAnswer : reads confidence
+    JevJudge --> Outcome
+
+    note for NoulAnswer "no confidence field:<br/>the value is the certainty"
+```
+
 ## Confidence-gated routing
 
 Tier your thresholds by what the action costs when it is wrong. A universal floor keeps
@@ -37,6 +99,30 @@ switch (gate.decide(response.choice("intent"))) {
     case ESCALATE -> handOverToAHuman();
 }
 ```
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant App
+    participant Gate as JevConfidenceGate
+    participant Human
+
+    App->>Gate: decide(response.choice("intent"))
+
+    alt confidence below the floor
+        Gate-->>App: ESCALATE
+        App->>Human: hand over
+    else below the action's own requirement
+        Gate-->>App: CONFIRM
+        App->>Human: ask to confirm
+    else at or above the requirement
+        Gate-->>App: EXECUTE
+        App->>App: perform(intent)
+    end
+```
+
+The two thresholds are independent: the floor is about the answer being undecided at all,
+the per-action requirement is about what the action costs when it is wrong.
 
 | Confidence | Low-stakes action | High-stakes action |
 |------------|-------------------|--------------------|

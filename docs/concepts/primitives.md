@@ -9,6 +9,60 @@ thresholded differently — which is the whole reason to pick deliberately betwe
 | `Choice` | pick one label | `choice`, `probabilities` per label, `confidence` |
 | `Score` | place on an ordered rubric | `score` (probability-weighted, continuous), `legend`, `probabilities` per level, `confidence` |
 
+All three carry the same two fields — `instructions` and `criteria`. What differs is the
+*shape* of `criteria`, and that shape is what makes each primitive answer the way it does:
+
+```mermaid
+classDiagram
+    direction TB
+
+    class Question {
+        <<sealed interface>>
+        +type() QuestionType
+        +instructions() JsonContent
+    }
+
+    class Noul {
+        <<record>>
+        +JsonContent instructions
+        +NoulCriteria criteria
+        +of(String)$ Noul
+    }
+
+    class Choice {
+        <<record>>
+        +JsonContent instructions
+        +Map~String,JsonContent~ criteria
+        +of(String, String...)$ Choice
+    }
+
+    class Score {
+        <<record>>
+        +JsonContent instructions
+        +List~JsonContent~ criteria
+        +maxLevel() int
+        +of(String, String...)$ Score
+    }
+
+    class NoulCriteria {
+        <<record>>
+        +JsonContent whenTrue
+        +JsonContent whenFalse
+    }
+
+    Question <|.. Noul
+    Question <|.. Choice
+    Question <|.. Score
+    Noul --> NoulCriteria
+
+    note for Choice "label to description; unordered"
+    note for Score "ordered levels; the index is the level"
+```
+
+`Question` is sealed and permits exactly these three, so a `switch` over a question is
+exhaustive without a default branch.
+
+
 ## Noul
 
 A yes/no question whose answer is a probability rather than a boolean. There is no separate
@@ -97,6 +151,26 @@ Map<String, Question> questions = Map.of(
 SystemOneResponse response = client.systemOne(state, questions);
 ```
 
+```mermaid
+sequenceDiagram
+    autonumber
+    participant App
+    participant Client as TypeSafeClient
+    participant Jev as System One API
+
+    App->>Client: systemOne(state, 3 questions)
+    Client->>Jev: POST /v1/systemone
+    Note over Jev: the state is read once, and every<br/>question is answered against it in parallel
+    Jev-->>Client: one answer per question name
+    Client-->>App: SystemOneResponse
+
+    App->>App: scoreValue("helpfulness") >= 2.0
+    App->>App: noulValue("is_plausible") >= 0.8
+    App->>App: noulValue("is_grounded") >= 0.8
+```
+
+A third question costs a fraction of a third call, which is why the habit pays.
+
 The payoff is that each answer keeps its own threshold. An answer that is fluent and exactly
 on topic but quotes an impossible temperature fails on `is_plausible` alone — a single
 overall rating would average that problem away into a middling score.
@@ -184,6 +258,57 @@ is not checked when you wrap it — an invalid one surfaces as a
 `NoulAnswer`, `ChoiceAnswer`, `ScoreAnswer` and `UnknownAnswer`. The last is the
 forward-compatibility escape hatch: a primitive added to Jev after this SDK version arrives
 as raw JSON rather than failing the call.
+
+```mermaid
+classDiagram
+    direction TB
+
+    class Answer {
+        <<sealed interface>>
+        +type() AnswerType
+    }
+
+    class NoulAnswer {
+        <<record>>
+        +double value
+        +isTrue(double) boolean
+    }
+
+    class ChoiceAnswer {
+        <<record>>
+        +String value
+        +Map probabilities
+        +double confidence
+        +optionsAbove(double)
+    }
+
+    class ScoreAnswer {
+        <<record>>
+        +double value
+        +Map legend
+        +Map probabilities
+        +double confidence
+        +nearestLabel() String
+    }
+
+    class UnknownAnswer {
+        <<record>>
+        +String typeName
+        +Map raw
+    }
+
+    Answer <|.. NoulAnswer
+    Answer <|.. ChoiceAnswer
+    Answer <|.. ScoreAnswer
+    Answer <|.. UnknownAnswer
+
+    note for NoulAnswer "no confidence:<br/>the value is the certainty"
+```
+
+The maps are keyed by what the primitive ranks: `ChoiceAnswer.probabilities` by option
+label, `ScoreAnswer.probabilities` and `legend` by level index. Note also which records carry
+`confidence` and which does not — that asymmetry is deliberate, and is the subject of
+[Confidence](confidence.md).
 
 ```java
 Answer answer = response.answer("department");
