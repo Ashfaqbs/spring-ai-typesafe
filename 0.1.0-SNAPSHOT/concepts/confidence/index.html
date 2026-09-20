@@ -20,7 +20,7 @@
         
       
       
-      <link rel="icon" href="../../assets/images/favicon.png">
+      <link rel="icon" href="../../images/logo2.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
@@ -100,8 +100,7 @@
   <nav class="md-header__inner md-grid" aria-label="Header">
     <a href="../.." title="Spring AI TypeSafe" class="md-header__button md-logo" aria-label="Spring AI TypeSafe" data-md-component="logo">
       
-  
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+  <img src="../../images/logo2.png" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -443,8 +442,7 @@
   <label class="md-nav__title" for="__drawer">
     <a href="../.." title="Spring AI TypeSafe" class="md-nav__button md-logo" aria-label="Spring AI TypeSafe" data-md-component="logo">
       
-  
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+  <img src="../../images/logo2.png" alt="logo">
 
     </a>
     Spring AI TypeSafe
@@ -653,6 +651,17 @@
     <span class="md-ellipsis">
       
         What it actually measures
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-confidence-lives" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where confidence lives
       
     </span>
   </a>
@@ -1570,6 +1579,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#where-confidence-lives" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where confidence lives
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#confidence-gated-routing" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1696,6 +1716,63 @@ answer", but "do not let software act on this one alone".</p>
 <p>A noul's value already <em>is</em> its certainty. A <code>0.5</code> is the undecided case, so there is
 nothing a separate statistic would add. Only <code>Choice</code> and <code>Score</code> report confidence.</p>
 </div>
+<h2 id="where-confidence-lives">Where confidence lives<a class="headerlink" href="#where-confidence-lives" title="Permanent link">&para;</a></h2>
+<p>Confidence is a field on the answer, not something you compute. Two of the four answer
+records carry it, and the gate and the judge are the two things that read it — the judge
+from either kind, the gate through <code>decide(ChoiceAnswer)</code> or the raw
+<code>decide(action, confidence)</code> overload:</p>
+<pre class="mermaid"><code>classDiagram
+    direction TB
+
+    class NoulAnswer {
+        &lt;&lt;record&gt;&gt;
+        +double value
+    }
+
+    class ChoiceAnswer {
+        &lt;&lt;record&gt;&gt;
+        +String value
+        +double confidence
+    }
+
+    class ScoreAnswer {
+        &lt;&lt;record&gt;&gt;
+        +double value
+        +double confidence
+    }
+
+    class JevConfidenceGate {
+        +decide(ChoiceAnswer) Decision
+        +floor() double
+        +requiredFor(String) double
+    }
+
+    class Decision {
+        &lt;&lt;enumeration&gt;&gt;
+        EXECUTE
+        CONFIRM
+        ESCALATE
+    }
+
+    class Outcome {
+        &lt;&lt;enumeration&gt;&gt;
+        PASSED
+        FAILED
+        INCONCLUSIVE
+    }
+
+    class JevJudge {
+        +minConfidence
+        +failOnInconclusive
+    }
+
+    JevConfidenceGate ..&gt; ChoiceAnswer : decide(answer)
+    JevConfidenceGate --&gt; Decision
+    JevJudge ..&gt; ChoiceAnswer : reads confidence
+    JevJudge ..&gt; ScoreAnswer : reads confidence
+    JevJudge --&gt; Outcome
+
+    note for NoulAnswer "no confidence field:&lt;br/&gt;the value is the certainty"</code></pre>
 <h2 id="confidence-gated-routing">Confidence-gated routing<a class="headerlink" href="#confidence-gated-routing" title="Permanent link">&para;</a></h2>
 <p>Tier your thresholds by what the action costs when it is wrong. A universal floor keeps
 anything genuinely undecided away from automation; above it, expensive actions demand more
@@ -1712,6 +1789,26 @@ than cheap ones.</p>
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="n">ESCALATE</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">handOverToAHuman</span><span class="p">();</span>
 </span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="p">}</span>
 </span></code></pre></div>
+<pre class="mermaid"><code>sequenceDiagram
+    autonumber
+    participant App
+    participant Gate as JevConfidenceGate
+    participant Human
+
+    App-&gt;&gt;Gate: decide(response.choice("intent"))
+
+    alt confidence below the floor
+        Gate--&gt;&gt;App: ESCALATE
+        App-&gt;&gt;Human: hand over
+    else below the action's own requirement
+        Gate--&gt;&gt;App: CONFIRM
+        App-&gt;&gt;Human: ask to confirm
+    else at or above the requirement
+        Gate--&gt;&gt;App: EXECUTE
+        App-&gt;&gt;App: perform(intent)
+    end</code></pre>
+<p>The two thresholds are independent: the floor is about the answer being undecided at all,
+the per-action requirement is about what the action costs when it is wrong.</p>
 <table>
 <thead>
 <tr>

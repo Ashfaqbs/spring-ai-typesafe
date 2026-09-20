@@ -20,7 +20,7 @@
         
       
       
-      <link rel="icon" href="../../assets/images/favicon.png">
+      <link rel="icon" href="../../images/logo2.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
@@ -100,8 +100,7 @@
   <nav class="md-header__inner md-grid" aria-label="Header">
     <a href="../.." title="Spring AI TypeSafe" class="md-header__button md-logo" aria-label="Spring AI TypeSafe" data-md-component="logo">
       
-  
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+  <img src="../../images/logo2.png" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -443,8 +442,7 @@
   <label class="md-nav__title" for="__drawer">
     <a href="../.." title="Spring AI TypeSafe" class="md-nav__button md-logo" aria-label="Spring AI TypeSafe" data-md-component="logo">
       
-  
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+  <img src="../../images/logo2.png" alt="logo">
 
     </a>
     Spring AI TypeSafe
@@ -1822,6 +1820,54 @@ thresholded differently — which is the whole reason to pick deliberately betwe
 </tr>
 </tbody>
 </table>
+<p>All three carry the same two fields — <code>instructions</code> and <code>criteria</code>. What differs is the
+<em>shape</em> of <code>criteria</code>, and that shape is what makes each primitive answer the way it does:</p>
+<pre class="mermaid"><code>classDiagram
+    direction TB
+
+    class Question {
+        &lt;&lt;sealed interface&gt;&gt;
+        +type() QuestionType
+        +instructions() JsonContent
+    }
+
+    class Noul {
+        &lt;&lt;record&gt;&gt;
+        +JsonContent instructions
+        +NoulCriteria criteria
+        +of(String)$ Noul
+    }
+
+    class Choice {
+        &lt;&lt;record&gt;&gt;
+        +JsonContent instructions
+        +Map~String,JsonContent~ criteria
+        +of(String, String...)$ Choice
+    }
+
+    class Score {
+        &lt;&lt;record&gt;&gt;
+        +JsonContent instructions
+        +List~JsonContent~ criteria
+        +maxLevel() int
+        +of(String, String...)$ Score
+    }
+
+    class NoulCriteria {
+        &lt;&lt;record&gt;&gt;
+        +JsonContent whenTrue
+        +JsonContent whenFalse
+    }
+
+    Question &lt;|.. Noul
+    Question &lt;|.. Choice
+    Question &lt;|.. Score
+    Noul --&gt; NoulCriteria
+
+    note for Choice "label to description; unordered"
+    note for Score "ordered levels; the index is the level"</code></pre>
+<p><code>Question</code> is sealed and permits exactly these three, so a <code>switch</code> over a question is
+exhaustive without a default branch.</p>
 <h2 id="noul">Noul<a class="headerlink" href="#noul" title="Permanent link">&para;</a></h2>
 <p>A yes/no question whose answer is a probability rather than a boolean. There is no separate
 confidence, because a noul of <code>0.5</code> already tells you the model is undecided.</p>
@@ -1891,6 +1937,22 @@ the call in parallel, so a third question is far cheaper than a third call.</p>
 </span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>
 </span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="n">SystemOneResponse</span><span class="w"> </span><span class="n">response</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">client</span><span class="p">.</span><span class="na">systemOne</span><span class="p">(</span><span class="n">state</span><span class="p">,</span><span class="w"> </span><span class="n">questions</span><span class="p">);</span>
 </span></code></pre></div>
+<pre class="mermaid"><code>sequenceDiagram
+    autonumber
+    participant App
+    participant Client as TypeSafeClient
+    participant Jev as System One API
+
+    App-&gt;&gt;Client: systemOne(state, 3 questions)
+    Client-&gt;&gt;Jev: POST /v1/systemone
+    Note over Jev: the state is read once, and every&lt;br/&gt;question is answered against it in parallel
+    Jev--&gt;&gt;Client: one answer per question name
+    Client--&gt;&gt;App: SystemOneResponse
+
+    App-&gt;&gt;App: scoreValue("helpfulness") &gt;= 2.0
+    App-&gt;&gt;App: noulValue("is_plausible") &gt;= 0.8
+    App-&gt;&gt;App: noulValue("is_grounded") &gt;= 0.8</code></pre>
+<p>A third question costs a fraction of a third call, which is why the habit pays.</p>
 <p>The payoff is that each answer keeps its own threshold. An answer that is fluent and exactly
 on topic but quotes an impossible temperature fails on <code>is_plausible</code> alone — a single
 overall rating would average that problem away into a middling score.</p>
@@ -1997,6 +2059,53 @@ part of judge feedback and has to describe what was actually sent.</p>
 <p><code>NoulAnswer</code>, <code>ChoiceAnswer</code>, <code>ScoreAnswer</code> and <code>UnknownAnswer</code>. The last is the
 forward-compatibility escape hatch: a primitive added to Jev after this SDK version arrives
 as raw JSON rather than failing the call.</p>
+<pre class="mermaid"><code>classDiagram
+    direction TB
+
+    class Answer {
+        &lt;&lt;sealed interface&gt;&gt;
+        +type() AnswerType
+    }
+
+    class NoulAnswer {
+        &lt;&lt;record&gt;&gt;
+        +double value
+        +isTrue(double) boolean
+    }
+
+    class ChoiceAnswer {
+        &lt;&lt;record&gt;&gt;
+        +String value
+        +Map probabilities
+        +double confidence
+        +optionsAbove(double)
+    }
+
+    class ScoreAnswer {
+        &lt;&lt;record&gt;&gt;
+        +double value
+        +Map legend
+        +Map probabilities
+        +double confidence
+        +nearestLabel() String
+    }
+
+    class UnknownAnswer {
+        &lt;&lt;record&gt;&gt;
+        +String typeName
+        +Map raw
+    }
+
+    Answer &lt;|.. NoulAnswer
+    Answer &lt;|.. ChoiceAnswer
+    Answer &lt;|.. ScoreAnswer
+    Answer &lt;|.. UnknownAnswer
+
+    note for NoulAnswer "no confidence:&lt;br/&gt;the value is the certainty"</code></pre>
+<p>The maps are keyed by what the primitive ranks: <code>ChoiceAnswer.probabilities</code> by option
+label, <code>ScoreAnswer.probabilities</code> and <code>legend</code> by level index. Note also which records carry
+<code>confidence</code> and which does not — that asymmetry is deliberate, and is the subject of
+<a href="../confidence/">Confidence</a>.</p>
 <div class="highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">Answer</span><span class="w"> </span><span class="n">answer</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">response</span><span class="p">.</span><span class="na">answer</span><span class="p">(</span><span class="s">"department"</span><span class="p">);</span>
 </span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">answer</span><span class="w"> </span><span class="k">instanceof</span><span class="w"> </span><span class="n">ChoiceAnswer</span><span class="w"> </span><span class="n">choice</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">choice</span><span class="p">.</span><span class="na">confidence</span><span class="p">()</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="mf">0.8</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">    </span><span class="n">route</span><span class="p">(</span><span class="n">choice</span><span class="p">.</span><span class="na">value</span><span class="p">());</span>
