@@ -72,10 +72,28 @@ class QuestionBuilderTests {
 	}
 
 	@Test
+	void choiceRequiresInstructions() {
+		// The API documents instructions as required for a choice; fail at build time like
+		// the Noul builder does, not as a 422 on the wire.
+		assertThatIllegalArgumentException()
+			.isThrownBy(() -> Choice.builder().option("billing").build())
+			.withMessageContaining("instructions must be set");
+	}
+
+	@Test
 	void scoreRejectsFewerThanTwoLevels() {
 		assertThatIllegalArgumentException()
 			.isThrownBy(() -> Score.builder().instructions("How frustrated?").level("Calm").build())
 			.withMessageContaining("at least two levels");
+	}
+
+	@Test
+	void scoreRequiresInstructions() {
+		// The API documents instructions as required for a score; fail at build time like
+		// the Noul builder does, not as a 422 on the wire.
+		assertThatIllegalArgumentException()
+			.isThrownBy(() -> Score.builder().level("Calm").level("Frustrated").build())
+			.withMessageContaining("instructions must be set");
 	}
 
 	@Test

@@ -161,6 +161,9 @@ public record Choice(@JsonProperty("instructions") @Nullable JsonContent instruc
 		}
 
 		public Choice build() {
+			// The API documents instructions as required for a choice; fail here rather than
+			// as a 422 on the wire, the way the Noul builder already does.
+			Assert.notNull(this.instructions, "instructions must be set");
 			return new Choice(this.instructions, Collections.unmodifiableMap(new LinkedHashMap<>(this.criteria)));
 		}
 
