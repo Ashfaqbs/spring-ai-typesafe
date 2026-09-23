@@ -164,9 +164,6 @@ public record Score(@JsonProperty("instructions") @Nullable JsonContent instruct
 		}
 
 		public Score build() {
-			// The API documents instructions as required for a score; fail here rather than
-			// as a 422 on the wire, the way the Noul builder already does.
-			Assert.notNull(this.instructions, "instructions must be set");
 			return new Score(this.instructions, Collections.unmodifiableList(new ArrayList<>(this.criteria)));
 		}
 

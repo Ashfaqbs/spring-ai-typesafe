@@ -72,12 +72,12 @@ class QuestionBuilderTests {
 	}
 
 	@Test
-	void choiceRequiresInstructions() {
-		// The API documents instructions as required for a choice; fail at build time like
-		// the Noul builder does, not as a 422 on the wire.
-		assertThatIllegalArgumentException()
-			.isThrownBy(() -> Choice.builder().option("billing").build())
-			.withMessageContaining("instructions must be set");
+	void choiceBuildsWithoutInstructions() {
+		// Confirmed against the live API: a choice with criteria only is accepted.
+		Choice choice = Choice.builder().option("billing").build();
+
+		assertThat(choice.instructions()).isNull();
+		assertThat(choice.criteria()).containsOnlyKeys("billing");
 	}
 
 	@Test
@@ -88,12 +88,12 @@ class QuestionBuilderTests {
 	}
 
 	@Test
-	void scoreRequiresInstructions() {
-		// The API documents instructions as required for a score; fail at build time like
-		// the Noul builder does, not as a 422 on the wire.
-		assertThatIllegalArgumentException()
-			.isThrownBy(() -> Score.builder().level("Calm").level("Frustrated").build())
-			.withMessageContaining("instructions must be set");
+	void scoreBuildsWithoutInstructions() {
+		// Confirmed against the live API: a score with criteria only is accepted.
+		Score score = Score.builder().level("Calm").level("Frustrated").build();
+
+		assertThat(score.instructions()).isNull();
+		assertThat(score.maxLevel()).isEqualTo(1);
 	}
 
 	@Test
@@ -130,11 +130,21 @@ class QuestionBuilderTests {
 	}
 
 	@Test
-	void noulRequiresInstructions() {
-		// The API documents instructions as required for a noul; fail at build time like the
-		// Choice and Score builders do, not as a 422 on the wire.
+	void noulBuildsWithCriteriaOnly() {
+		// Confirmed against the live API: a noul with criteria only is accepted.
+		Noul noul = Noul.builder().whenTrue("Explicitly time-sensitive").whenFalse("No urgency expressed").build();
+
+		assertThat(noul.instructions()).isNull();
+		assertThat(noul.criteria()).isEqualTo(
+				new NoulCriteria(JsonContent.of("Explicitly time-sensitive"), JsonContent.of("No urgency expressed")));
+	}
+
+	@Test
+	void noulRequiresInstructionsOrCriteria() {
+		// Confirmed against the live API: a noul with neither is rejected with 400
+		// "Noul question must have criteria or instructions".
 		assertThatIllegalArgumentException().isThrownBy(() -> Noul.builder().build())
-			.withMessageContaining("instructions must be set");
+			.withMessageContaining("instructions or criteria");
 	}
 
 	@Test
